@@ -9,23 +9,23 @@ flags.DEFINE_float('ac_lambda0', 0.01, '\lambda in the activation function a_c, 
 flags.DEFINE_float('ac_lambda_step', 0.01,
                    'It is described that \lambda increases at each iteration with a fixed schedule, however specific super parameters is absent.')
 
-flags.DEFINE_integer('batch_size', 50, 'batch size')
-flags.DEFINE_integer('epoch', 50, 'epoch')
+flags.DEFINE_integer('batch_size', 2, 'batch size')
+flags.DEFINE_integer('epoch', 3, 'epoch')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations')
 flags.DEFINE_float('m_schedule', 0.2, 'the m will get to 0.9 at current epoch')
 flags.DEFINE_float('epsilon', 1e-9, 'epsilon')
 flags.DEFINE_float('m_plus', 0.9, 'the parameter of m plus')
 flags.DEFINE_float('m_minus', 0.1, 'the parameter of m minus')
 flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit classes')
-flags.DEFINE_boolean('weight_reg', False, 'train with regularization of weights')
+flags.DEFINE_boolean('weight_reg', True, 'train with regularization of weights')
 flags.DEFINE_string('norm', 'norm2', 'norm type')
 ################################
 #    structure parameters      #
 ################################
 flags.DEFINE_integer('A', 32, 'number of channels in output from ReLU Conv1')
-flags.DEFINE_integer('B', 8, 'number of capsules in output from PrimaryCaps')
-flags.DEFINE_integer('C', 16, 'number of channels in output from ConvCaps1')
-flags.DEFINE_integer('D', 16, 'number of channels in output from ConvCaps2')
+flags.DEFINE_integer('B', 4, 'number of capsules in output from PrimaryCaps')
+flags.DEFINE_integer('C', 4, 'number of channels in output from ConvCaps1')
+flags.DEFINE_integer('D', 4, 'number of channels in output from ConvCaps2')
 
 ############################
 #   environment setting    #
