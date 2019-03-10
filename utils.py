@@ -10,6 +10,7 @@ from keras import backend as K
 
 import logging
 import daiquiri
+import modelnet40_provider as provider
 
 daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
@@ -62,7 +63,46 @@ def create_inputs_fashion_mnist(is_train):
     x, y = tf.train.shuffle_batch(data_queue, num_threads=8, batch_size=cfg.batch_size, capacity=cfg.batch_size * 64,
                                   min_after_dequeue=cfg.batch_size * 32, allow_smaller_final_batch=False)
 
-    return (x, y)
+    return x, y
+
+#wrapper between both the implementations
+def create_inputs_modelnet40(is_train):
+    tr_x, tr_y = load_modelnet40(cfg.dataset_modelnet40, is_train)
+    # print(tr_x.shape,tr_y.shape)
+    data_queue = tf.train.slice_input_producer([tr_x, tr_y], capacity=64 * 8)
+    x, y = tf.train.shuffle_batch(data_queue, num_threads=8, batch_size=cfg.batch_size, capacity=cfg.batch_size * 64,
+                                  min_after_dequeue=cfg.batch_size * 32, allow_smaller_final_batch=False)
+    return x, y
+
+#loading modelnet40 from h5 files, cloned from pointnet-tf code.
+def load_modelnet40(path,is_training):
+    mode_file = os.path.join('{}_ply_hdf5_2048'.format(path), "train_files.txt")
+    if not is_training:
+        mode_file = os.path.join('{}_ply_hdf5_2048'.format(path), "test_files.txt")
+
+    parse_files = provider.getDataFiles(mode_file)
+
+    parse_file_idxs = np.arange(0, len(parse_files))
+    np.random.shuffle(parse_file_idxs)
+    data=[]
+    label=[]
+    for fn in range(len(parse_files)):
+        print('Loading data {}'.format('..'*fn), end="\r")
+        current_data, current_label = provider.loadDataFile(parse_files[parse_file_idxs[fn]])
+
+        current_data = current_data[:, 0:cfg.modelnet_num_point, :]
+
+        current_data, current_label, _ = provider.shuffle_data(current_data, np.squeeze(current_label))
+
+        current_label = np.squeeze(current_label)
+
+        data.append(current_data)
+        label.append(current_label)
+
+    data = np.vstack(data)
+    label = np.hstack(label)
+    data=data[...,np.newaxis]
+    return data,label
 
 
 def load_mnist(path, is_training):

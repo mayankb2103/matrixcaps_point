@@ -37,8 +37,15 @@ flags.DEFINE_integer('num_threads', 8, 'number of threads of enqueueing exampls'
 flags.DEFINE_string('logdir', 'logdir', 'logs directory')
 flags.DEFINE_string('test_logdir', 'test_logdir', 'test logs directory')
 
-cfg = tf.app.flags.FLAGS
+############################
+#   modelnet40 setting    #
+############################
+flags.DEFINE_string('dataset_modelnet40', 'data/modelnet40', 'the path for dataset')
+flags.DEFINE_integer('modelnet_num_point', 1024, 'number of 3D points in pointcloud of a shape ')
+#set number of 3d point in pointcloud shape
 
+
+cfg = tf.app.flags.FLAGS
 
 def get_coord_add(dataset_name: str):
     import numpy as np
@@ -49,7 +56,12 @@ def get_coord_add(dataset_name: str):
                'smallNORB': ([[[8., 8.], [12., 8.], [16., 8.], [24., 8.]],
                               [[8., 12.], [12., 12.], [16., 12.], [24., 12.]],
                               [[8., 16.], [12., 16.], [16., 16.], [24., 16.]],
+                              [[8., 24.], [12., 24.], [16., 24.], [24., 24.]]], 32.),
+               'modelnet40': ([[[8., 8.], [12., 8.], [16., 8.], [24., 8.]],
+                              [[8., 12.], [12., 12.], [16., 12.], [24., 12.]],
+                              [[8., 16.], [12., 16.], [16., 16.], [24., 16.]],
                               [[8., 24.], [12., 24.], [16., 24.], [24., 24.]]], 32.)
+               #tempry coord addition for modelnet40
                }
     coord_add, scale = options[dataset_name]
 
@@ -57,31 +69,36 @@ def get_coord_add(dataset_name: str):
 
     return coord_add
 
-
+#no. of training samples, testing samples and classes in modelnet40: 9840, 2468 and 40
 def get_dataset_size_train(dataset_name: str):
-    options = {'mnist': 55000, 'smallNORB': 23400 * 2,
-               'fashion_mnist': 55000, 'cifar10': 50000, 'cifar100': 50000}
+    options = {'mnist': 55000, 'fashion_mnist': 55000,
+                'cifar10': 50000, 'cifar100': 50000,
+               'smallNORB': 23400 * 2,'modelnet40': 9840
+               }
+
     return options[dataset_name]
 
 
 def get_dataset_size_test(dataset_name: str):
-    options = {'mnist': 10000, 'smallNORB': 23400 * 2,
-               'fashion_mnist': 10000, 'cifar10': 10000, 'cifar10': 10000}
+    options = {'mnist': 10000, 'fashion_mnist': 10000,
+               'cifar10': 10000, 'cifar100': 10000,
+               'smallNORB': 23400 * 2,'modelnet40':2468}
     return options[dataset_name]
 
 
 def get_num_classes(dataset_name: str):
-    options = {'mnist': 10, 'smallNORB': 5, 'fashion_mnist': 10, 'cifar10': 10, 'cifar100': 100}
+    options = {'mnist': 10,'fashion_mnist': 10,
+                'cifar10': 10, 'cifar100': 100,
+                'smallNORB': 5, 'modelnet40' : 40}
     return options[dataset_name]
 
 
-from utils import create_inputs_mnist, create_inputs_norb, create_inputs_cifar10, create_inputs_cifar100
+from utils import create_inputs_mnist, create_inputs_norb, create_inputs_modelnet40
 
-
+#calling create_inputs_modelnet40 from utils
 def get_create_inputs(dataset_name: str, is_train: bool, epochs: int):
     options = {'mnist': lambda: create_inputs_mnist(is_train),
                'fashion_mnist': lambda: create_inputs_mnist(is_train),
                'smallNORB': lambda: create_inputs_norb(is_train, epochs),
-               'cifar10': lambda: create_inputs_cifar10(is_train),
-               'cifa100': lambda: create_inputs_cifa100(is_train)}
+               'modelnet40': lambda : create_inputs_modelnet40(is_train)}
     return options[dataset_name]
