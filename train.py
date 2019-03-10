@@ -63,7 +63,7 @@ def main(args):
                 # loss = net.cross_ent_loss(output, batch_labels)
                 tf.logging.debug(pose_out.get_shape())
                 loss, spread_loss, mse, _ = net.spread_loss(
-                    output, pose_out, batch_x, batch_labels, m_op)
+                    output, pose_out, cfg.decoder, batch_x, batch_labels, m_op)
                 acc = net.test_accuracy(output, batch_labels)
                 tf.summary.scalar('spread_loss', spread_loss)
                 tf.summary.scalar('reconstruction_loss', mse)

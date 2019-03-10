@@ -41,7 +41,7 @@ def cross_ent_loss(output, x, y):
     return loss_all, reconstruction_loss, output
 
 
-def spread_loss(output, pose_out, x, y, m):
+def spread_loss(output, pose_out, decoder, x, y, m):
     """
     # check NaN
     # See: https://stackoverflow.com/questions/40701712/how-to-check-nan-in-gradients-in-tensorflow-when-updating
@@ -65,29 +65,43 @@ def spread_loss(output, pose_out, x, y, m):
     loss = tf.matmul(loss, 1. - y)
     loss = tf.reduce_mean(loss)
 
+    if(decoder):
     # reconstruction loss
     # pose_out = tf.reshape(tf.matmul(pose_out, y, transpose_a=True), shape=[cfg.batch_size, -1])
-    pose_out = tf.reshape(tf.multiply(pose_out, y), shape=[cfg.batch_size, -1])
-    tf.logging.info("decoder input value dimension:{}".format(pose_out.get_shape()))
+        pose_out = tf.reshape(tf.multiply(pose_out, y), shape=[cfg.batch_size, -1])
+        tf.logging.info("decoder input value dimension:{}".format(pose_out.get_shape()))
 
-    with tf.variable_scope('decoder'):
-        pose_out = slim.fully_connected(pose_out, 512, trainable=True, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
-        pose_out = slim.fully_connected(pose_out, 1024, trainable=True, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
-        pose_out = slim.fully_connected(pose_out, data_size_x * data_size_y,
-                                        trainable=True, activation_fn=tf.sigmoid, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
+        with tf.variable_scope('decoder'):
+            pose_out = slim.fully_connected(pose_out, 512, trainable=True, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
+            pose_out = slim.fully_connected(pose_out, 1024, trainable=True, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
+            pose_out = slim.fully_connected(pose_out, data_size_x * data_size_y,
+                                            trainable=True, activation_fn=tf.sigmoid, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
 
-        x = tf.reshape(x, shape=[cfg.batch_size, -1])
-        reconstruction_loss = tf.reduce_mean(tf.square(pose_out - x))
+            x = tf.reshape(x, shape=[cfg.batch_size, -1])
+            reconstruction_loss = tf.reduce_mean(tf.square(pose_out - x))
 
-    if cfg.weight_reg:
-        # regularization loss
-        regularization = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-        # loss+0.0005*reconstruction_loss+regularization#
-        loss_all = tf.add_n([loss] + [0.0005 * data_size_x * data_size_y * reconstruction_loss] + regularization)
+
+        if cfg.weight_reg:
+            # regularization loss
+            regularization = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            # loss+0.0005*reconstruction_loss+regularization#
+            loss_all = tf.add_n([loss] + [0.0005 * data_size_x * data_size_y * reconstruction_loss] + regularization)
+        else:
+            loss_all = tf.add_n([loss] + [0.0005 * data_size_x * data_size_y * reconstruction_loss])
+
+        return loss_all, loss, reconstruction_loss, pose_out
+
     else:
-        loss_all = tf.add_n([loss] + [0.0005 * data_size_x * data_size_y * reconstruction_loss])
+        if cfg.weight_reg:
+            # regularization loss
+            regularization = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            # loss+0.0005*reconstruction_loss+regularization#
+            loss_all = tf.add_n([loss] + regularization)
+        else:
+            loss_all = tf.add_n([loss])
 
-    return loss_all, loss, reconstruction_loss, pose_out
+        return loss_all, loss, loss, pose_out
+
 
 # input should be a tensor with size as [batch_size, height, width, channels]
 

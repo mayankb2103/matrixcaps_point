@@ -84,8 +84,8 @@ def load_modelnet40(path,is_training):
 
     parse_file_idxs = np.arange(0, len(parse_files))
     np.random.shuffle(parse_file_idxs)
-    data=[]
-    label=[]
+    data = []
+    label = []
     for fn in range(len(parse_files)):
         print('Loading data {}'.format('..'*fn), end="\r")
         current_data, current_label = provider.loadDataFile(parse_files[parse_file_idxs[fn]])
