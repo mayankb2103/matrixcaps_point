@@ -4,7 +4,7 @@
 ##### Start training
 `python train.py modelnet40`
 
-###Questions
+### Questions
 1) Why exponential decay of learning rate?
 2) Does extracting 2048 points instead of 1024 can help?
 3) Why spread loss increases after every epoch and decreases within an epoch? 
