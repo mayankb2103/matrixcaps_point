@@ -5,4 +5,4 @@ venv/
 imgs/
 test_logdir/
 /hdd/pointnet/pointet-tf/
-
+.idea/

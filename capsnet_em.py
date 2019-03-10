@@ -25,7 +25,7 @@ def cross_ent_loss(output, x, y):
     with tf.variable_scope('decoder'):
         output = slim.fully_connected(output, 512, trainable=True)
         output = slim.fully_connected(output, 1024, trainable=True)
-        output = slim.fully_connected(output, data_size * data_size,
+        output = slim.fully_connected(output, data_size_x * data_size_y,
                                       trainable=True, activation_fn=tf.sigmoid)
 
         x = tf.reshape(x, shape=[cfg.batch_size, -1])
@@ -48,7 +48,9 @@ def spread_loss(output, pose_out, x, y, m):
     """
 
     num_class = int(output.get_shape()[-1])
-    data_size = int(x.get_shape()[1])
+    # data_size = int(x.get_shape()[1])
+    data_size_x = int(x.get_shape()[1])
+    data_size_y = int(x.get_shape()[2])
 
     y = tf.one_hot(y, num_class, dtype=tf.float32)
 
@@ -69,7 +71,7 @@ def spread_loss(output, pose_out, x, y, m):
     with tf.variable_scope('decoder'):
         pose_out = slim.fully_connected(pose_out, 512, trainable=True, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
         pose_out = slim.fully_connected(pose_out, 1024, trainable=True, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
-        pose_out = slim.fully_connected(pose_out, data_size * data_size,
+        pose_out = slim.fully_connected(pose_out, data_size_x * data_size_y,
                                         trainable=True, activation_fn=tf.sigmoid, weights_regularizer=tf.contrib.layers.l2_regularizer(5e-04))
 
         x = tf.reshape(x, shape=[cfg.batch_size, -1])
@@ -79,9 +81,9 @@ def spread_loss(output, pose_out, x, y, m):
         # regularization loss
         regularization = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         # loss+0.0005*reconstruction_loss+regularization#
-        loss_all = tf.add_n([loss] + [0.0005 * data_size* data_size * reconstruction_loss] + regularization)
+        loss_all = tf.add_n([loss] + [0.0005 * data_size_x * data_size_y * reconstruction_loss] + regularization)
     else:
-        loss_all = tf.add_n([loss] + [0.0005 * data_size* data_size * reconstruction_loss])
+        loss_all = tf.add_n([loss] + [0.0005 * data_size_x * data_size_y * reconstruction_loss])
 
     return loss_all, loss, reconstruction_loss, pose_out
 
@@ -163,7 +165,10 @@ def build_arch_baseline(input, is_train: bool, num_classes: int):
 
 def build_arch(input, coord_add, is_train: bool, num_classes: int):
     test1 = []
-    data_size = int(input.get_shape()[1])
+    # data_size = int(input.get_shape()[1])
+    data_size_x = int(input.get_shape()[1])
+    data_size_y = int(input.get_shape()[2])
+
     # xavier initialization is necessary here to provide higher stability
     # initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
     # instead of initializing bias with constant 0, a truncated normal initializer is exploited here for higher stability
@@ -176,34 +181,39 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
 
     # weights_initializer=initializer,
     with slim.arg_scope([slim.conv2d], trainable=is_train, biases_initializer=bias_initializer, weights_regularizer=weights_regularizer):
-        with tf.variable_scope('relu_conv1') as scope:
-            output = slim.conv2d(input, num_outputs=cfg.A, kernel_size=[
-                                 5, 5], stride=2, padding='VALID', scope=scope, activation_fn=tf.nn.relu)
-            data_size = int(np.floor((data_size - 4) / 2))
-
-            assert output.get_shape() == [cfg.batch_size, data_size, data_size, cfg.A]
-            tf.logging.info('conv1 output shape: {}'.format(output.get_shape()))
+        # with tf.variable_scope('relu_conv1') as scope:
+        #     output = slim.conv2d(input, num_outputs=cfg.A, kernel_size=[
+        #                          5, 5], stride=2, padding='VALID', scope=scope, activation_fn=tf.nn.relu)
+        #     data_size = int(np.floor((data_size - 4) / 2))
+        #
+        #     assert output.get_shape() == [cfg.batch_size, data_size_x, data_size_y, cfg.A]
+        #     tf.logging.info('conv1 output shape: {}'.format(output.get_shape()))
 
         with tf.variable_scope('primary_caps') as scope:
-            pose = slim.conv2d(output, num_outputs=cfg.B * 16,
+            pose = slim.conv2d(input, num_outputs=cfg.B * 16,
                                kernel_size=[1, 1], stride=1, padding='VALID', scope=scope, activation_fn=None)
-            activation = slim.conv2d(output, num_outputs=cfg.B, kernel_size=[
+            activation = slim.conv2d(input, num_outputs=cfg.B, kernel_size=[
                                      1, 1], stride=1, padding='VALID', scope='primary_caps/activation', activation_fn=tf.nn.sigmoid)
-            pose = tf.reshape(pose, shape=[cfg.batch_size, data_size, data_size, cfg.B, 16])
+            pose = tf.reshape(pose, shape=[cfg.batch_size, data_size_x, data_size_y, cfg.B, 16])
             activation = tf.reshape(
-                activation, shape=[cfg.batch_size, data_size, data_size, cfg.B, 1])
+                activation, shape=[cfg.batch_size, data_size_x, data_size_y, cfg.B, 1])
             output = tf.concat([pose, activation], axis=4)
-            output = tf.reshape(output, shape=[cfg.batch_size, data_size, data_size, -1])
-            assert output.get_shape() == [cfg.batch_size, data_size, data_size, cfg.B * 17]
+            output = tf.reshape(output, shape=[cfg.batch_size, data_size_x, data_size_y, -1])
+            assert output.get_shape() == [cfg.batch_size, data_size_x, data_size_y, cfg.B * 17]
             tf.logging.info('primary capsule output shape: {}'.format(output.get_shape()))
 
         with tf.variable_scope('conv_caps1') as scope:
-            output = kernel_tile(output, 3, 2)
-            data_size = int(np.floor((data_size - 2) / 2))
+            output = kernel_tile(output, 1, 1) #$  2d_depthwise convolution changes to 1x1 instead of 3,2
+            # data_size = int(np.floor((data_size - 2) / 2))
+            data_size_x = int(input.get_shape()[1])
+            data_size_y = int(input.get_shape()[2])
+
+            #$ output and activation are shaped accordingly to kernel_tile parameters
+
             output = tf.reshape(output, shape=[cfg.batch_size *
-                                               data_size * data_size, 3 * 3 * cfg.B, 17])
+                                               data_size_x * data_size_y, 1 * 1 * cfg.B, 17])
             activation = tf.reshape(output[:, :, 16], shape=[
-                                    cfg.batch_size * data_size * data_size, 3 * 3 * cfg.B, 1])
+                                    cfg.batch_size * data_size_x * data_size_y, 1 * 1 * cfg.B, 1])
 
             with tf.variable_scope('v') as scope:
                 votes = mat_transform(output[:, :, :16], cfg.C, weights_regularizer, tag=True)
@@ -215,23 +225,28 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
                 tf.logging.info('conv cap 1 activation before reshape: {}'.format(
                     activation.get_shape()))
 
-            pose = tf.reshape(miu, shape=[cfg.batch_size, data_size, data_size, cfg.C, 16])
+            pose = tf.reshape(miu, shape=[cfg.batch_size, data_size_x, data_size_y, cfg.C, 16])
             tf.logging.info('conv cap 1 pose shape: {}'.format(pose.get_shape()))
             activation = tf.reshape(
-                activation, shape=[cfg.batch_size, data_size, data_size, cfg.C, 1])
+                activation, shape=[cfg.batch_size, data_size_x, data_size_y, cfg.C, 1])
             tf.logging.info('conv cap 1 activation after reshape: {}'.format(
                 activation.get_shape()))
             output = tf.reshape(tf.concat([pose, activation], axis=4), [
-                                cfg.batch_size, data_size, data_size, -1])
+                                cfg.batch_size, data_size_x, data_size_y, -1])
             tf.logging.info('conv cap 1 output shape: {}'.format(output.get_shape()))
 
         with tf.variable_scope('conv_caps2') as scope:
-            output = kernel_tile(output, 3, 1)
-            data_size = int(np.floor((data_size - 2) / 1))
+            output = kernel_tile(output, 1, 1)           #$  2d_depthwise convolution changes to 1x1 instead of 3,2
+            # data_size = int(np.floor((data_size - 2) / 1))
+
+            data_size_x = int(input.get_shape()[1])
+            data_size_y = int(input.get_shape()[2])
+
+            #$ output and activation are shaped accordingly to kernel_tile parameters
             output = tf.reshape(output, shape=[cfg.batch_size *
-                                               data_size * data_size, 3 * 3 * cfg.C, 17])
+                                               data_size_x * data_size_y, 1 * 1 * cfg.C, 17])
             activation = tf.reshape(output[:, :, 16], shape=[
-                                    cfg.batch_size * data_size * data_size, 3 * 3 * cfg.C, 1])
+                                    cfg.batch_size * data_size_x * data_size_y, 1 * 1 * cfg.C, 1])
 
             with tf.variable_scope('v') as scope:
                 votes = mat_transform(output[:, :, :16], cfg.D, weights_regularizer)
@@ -240,10 +255,10 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
             with tf.variable_scope('routing') as scope:
                 miu, activation, _ = em_routing(votes, activation, cfg.D, weights_regularizer)
 
-            pose = tf.reshape(miu, shape=[cfg.batch_size * data_size * data_size, cfg.D, 16])
+            pose = tf.reshape(miu, shape=[cfg.batch_size * data_size_x * data_size_y, cfg.D, 16])
             tf.logging.info('conv cap 2 pose shape: {}'.format(votes.get_shape()))
             activation = tf.reshape(
-                activation, shape=[cfg.batch_size * data_size * data_size, cfg.D, 1])
+                activation, shape=[cfg.batch_size * data_size_x * data_size_y, cfg.D, 1])
             tf.logging.info('conv cap 2 activation shape: {}'.format(activation.get_shape()))
 
         # It is not clear from the paper that ConvCaps2 is full connected to Class Capsules, or is conv connected with kernel size of 1*1 and a global average pooling.
@@ -252,16 +267,15 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
             with tf.variable_scope('v') as scope:
                 votes = mat_transform(pose, num_classes, weights_regularizer)
 
-                assert votes.get_shape() == [cfg.batch_size * data_size *
-                                             data_size, cfg.D, num_classes, 16]
+                assert votes.get_shape() == [cfg.batch_size * data_size_x * data_size_y, cfg.D, num_classes, 16]
                 tf.logging.info('class cap votes original shape: {}'.format(votes.get_shape()))
 
-                coord_add = np.reshape(coord_add, newshape=[data_size * data_size, 1, 1, 2])
-                coord_add = np.tile(coord_add, [cfg.batch_size, cfg.D, num_classes, 1])
-                coord_add_op = tf.constant(coord_add, dtype=tf.float32)
-
-                votes = tf.concat([coord_add_op, votes], axis=3)
-                tf.logging.info('class cap votes coord add shape: {}'.format(votes.get_shape()))
+                # coord_add = np.reshape(coord_add, newshape=[data_size_x * data_size_y, 1, 1, 2])
+                # coord_add = np.tile(coord_add, [cfg.batch_size, cfg.D, num_classes, 1])
+                # coord_add_op = tf.constant(coord_add, dtype=tf.float32)
+                #
+                # votes = tf.concat([coord_add_op, votes], axis=3)
+                # tf.logging.info('class cap votes coord add shape: {}'.format(votes.get_shape()))
 
             with tf.variable_scope('routing') as scope:
                 miu, activation, test2 = em_routing(
@@ -272,15 +286,17 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
                                      values=test2)
 
             output = tf.reshape(activation, shape=[
-                                cfg.batch_size, data_size, data_size, num_classes])
+                                cfg.batch_size, data_size_x, data_size_y, num_classes])
 
-        output = tf.reshape(tf.nn.avg_pool(output, ksize=[1, data_size, data_size, 1], strides=[
+        output = tf.reshape(tf.nn.avg_pool(output, ksize=[1, data_size_x, data_size_y, 1], strides=[
                             1, 1, 1, 1], padding='VALID'), shape=[cfg.batch_size, num_classes])
         tf.logging.info('class cap output shape: {}'.format(output.get_shape()))
 
-        pose = tf.nn.avg_pool(tf.reshape(miu, shape=[cfg.batch_size, data_size, data_size, -1]), ksize=[
-                              1, data_size, data_size, 1], strides=[1, 1, 1, 1], padding='VALID')
-        pose_out = tf.reshape(pose, shape=[cfg.batch_size, num_classes, 18])
+        pose = tf.nn.avg_pool(tf.reshape(miu, shape=[cfg.batch_size, data_size_x, data_size_y, -1]), ksize=[
+                              1, data_size_x, data_size_y, 1], strides=[1, 1, 1, 1], padding='VALID')
+
+        #$ reshaping poseout it to 16 instead of 18 makes the code work. May be due to some coord_addition issue. Actual issue is still unknown
+        pose_out = tf.reshape(pose, shape=[cfg.batch_size, num_classes, 16])
 
     return output, pose_out
 
