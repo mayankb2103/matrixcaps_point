@@ -8,6 +8,8 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from config import cfg
 import numpy as np
+from transform_nets import input_transform_net, feature_transform_net
+
 
 def cross_ent_loss(output, x, y):
     loss = tf.losses.sparse_softmax_cross_entropy(labels=y, logits=output)
@@ -188,6 +190,17 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
         #
         #     assert output.get_shape() == [cfg.batch_size, data_size_x, data_size_y, cfg.A]
         #     tf.logging.info('conv1 output shape: {}'.format(output.get_shape()))
+        with tf.variable_scope('transform_net1') as scope:
+            transform = input_transform_net(input, tf.constant(is_train), None, K=3)
+
+        tf.logging.info('point_cloud output shape: {}'.format(input.get_shape()))
+        point_cloud_transformed = tf.matmul(input, transform)
+        input = tf.expand_dims(point_cloud_transformed, -1)
+        tf.logging.info('point_cloud output shape: {}'.format(input.get_shape()))
+
+
+
+
 
         with tf.variable_scope('primary_caps') as scope:
             pose = slim.conv2d(input, num_outputs=cfg.B * 16,

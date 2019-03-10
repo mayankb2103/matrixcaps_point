@@ -101,7 +101,7 @@ def load_modelnet40(path,is_training):
 
     data = np.vstack(data)
     label = np.hstack(label)
-    data=data[...,np.newaxis]
+    # data=data[...,np.newaxis]
     return data,label
 
 
