@@ -42,7 +42,8 @@ flags.DEFINE_string('test_logdir', 'test_logdir', 'test logs directory')
 ############################
 flags.DEFINE_string('dataset_modelnet40', 'data/modelnet40', 'the path for dataset')
 flags.DEFINE_integer('modelnet_num_point', 1024, 'number of 3D points in pointcloud of a shape ')
-#set number of 3d point in pointcloud shape
+flags.DEFINE_boolean('is_64', False, 'Whether to include 64 transform layer in network or not')
+
 
 
 cfg = tf.app.flags.FLAGS
@@ -61,7 +62,7 @@ def get_coord_add(dataset_name: str):
                               [[8., 12.], [12., 12.], [16., 12.], [24., 12.]],
                               [[8., 16.], [12., 16.], [16., 16.], [24., 16.]],
                               [[8., 24.], [12., 24.], [16., 24.], [24., 24.]]], 32.)
-               #tempry coord addition for modelnet40
+               #tempry coord addition for modelnet40, cloned of smallNORB
                }
     coord_add, scale = options[dataset_name]
 

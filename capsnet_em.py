@@ -9,7 +9,7 @@ import tensorflow.contrib.slim as slim
 from config import cfg
 import numpy as np
 from transform_nets import input_transform_net, feature_transform_net
-
+import tf_util
 
 def cross_ent_loss(output, x, y):
     loss = tf.losses.sparse_softmax_cross_entropy(labels=y, logits=output)
@@ -165,11 +165,16 @@ def build_arch_baseline(input, is_train: bool, num_classes: int):
         return output
 
 
-def build_arch(input, coord_add, is_train: bool, num_classes: int):
+def build_arch(input, coord_add, is_train: bool, is_64: bool, num_classes: int):
     test1 = []
     # data_size = int(input.get_shape()[1])
     data_size_x = int(input.get_shape()[1])
     data_size_y = int(input.get_shape()[2])
+
+    if is_64:
+        data_size_y = 64
+
+
 
     # xavier initialization is necessary here to provide higher stability
     # initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
@@ -193,14 +198,32 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
         with tf.variable_scope('transform_net1') as scope:
             transform = input_transform_net(input, tf.constant(is_train), None, K=3)
 
-        tf.logging.info('point_cloud output shape: {}'.format(input.get_shape()))
+        tf.logging.info('Transformation(3) shape: {}'.format(transform.get_shape()[1:]))
         point_cloud_transformed = tf.matmul(input, transform)
         input = tf.expand_dims(point_cloud_transformed, -1)
-        tf.logging.info('point_cloud output shape: {}'.format(input.get_shape()))
+        tf.logging.info('input_feature output shape: {}'.format(input.get_shape()))
 
+        if is_64:
+            net = tf_util.conv2d(input, 64, [1, 3],
+                                 padding='VALID', stride=[1, 1],
+                                 bn=True, is_training=tf.constant(is_train),
+                                 scope='conv1', bn_decay=None)
+            net = tf_util.conv2d(net, 64, [1, 1],
+                                 padding='VALID', stride=[1, 1],
+                                 bn=True, is_training=tf.constant(is_train),
+                                 scope='conv2', bn_decay=None)
 
+            with tf.variable_scope('transform_net2') as sc:
+                transform = feature_transform_net(net, tf.constant(is_train), None, K=64)
+            tf.logging.info('Transformation(64) shape: {}'.format(transform.get_shape()[1:]))
 
+            # end_points['transform'] = transform
+            net_transformed = tf.matmul(tf.squeeze(net, axis=[2]), transform)
+            print(net.get_shape(), transform.get_shape(), net_transformed.get_shape())
 
+            input = tf.expand_dims(net_transformed, -1)
+
+            tf.logging.info('transformed_feature output shape: {}'.format(input.get_shape()))
 
         with tf.variable_scope('primary_caps') as scope:
             pose = slim.conv2d(input, num_outputs=cfg.B * 16,

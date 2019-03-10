@@ -58,7 +58,7 @@ def main(args):
             with slim.arg_scope([slim.variable], device='/cpu:0'):
                 batch_squash = tf.divide(batch_x, 255.)
                 batch_x = slim.batch_norm(batch_x, center=False, is_training=True, trainable=True)
-                output, pose_out = net.build_arch(batch_x, coord_add, is_train=True,
+                output, pose_out = net.build_arch(batch_x, coord_add, is_train=True, is_64=cfg.is_64,
                                                   num_classes=num_classes)
                 # loss = net.cross_ent_loss(output, batch_labels)
                 tf.logging.debug(pose_out.get_shape())
