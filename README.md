@@ -15,7 +15,7 @@
 
 UPDATE @ 1pm: Decoder network removed. Network also doesn't seem to learn anything.
 
-Training going on my 2GB GPU -_-. Abhishek sir ne unke tanthe khade kar diye hai.
+
 
 As for right now, I am officially stuck and will read papers of cudenet and 3d point capsnet for some ideas. 
 
